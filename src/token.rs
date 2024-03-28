@@ -1,5 +1,6 @@
-#[derive(Debug)]
+#[derive(Debug ,PartialEq, Eq)]
 pub enum TokenType {
+    Identifer,
     BOOL,
     BREAK,
     CHAR,
@@ -8,6 +9,7 @@ pub enum TokenType {
     FALSE,
     FOR,
     IF,
+    ASSIGN,
     INT,
     PRINT,
     RETURN,
@@ -39,7 +41,17 @@ pub enum TokenType {
     NOTEQUIL,
     AND,
     OR,
+    AndLogical,
+    OrLogical,
+End,
     NOT,
-    ILLEGAL
+    ILLEGAL,
 }
 
+#[derive(Debug)]
+pub struct Token {
+    pub token: TokenType,
+    pub line: usize,
+    pub literal: String,
+    pub column: usize,
+}
