@@ -214,7 +214,6 @@ impl Lexer {
     fn read_digit(&mut self) -> String {
         let position = self.position;
         while self.is_digit(self.ch) {
-            dbg!(self.ch);
             self.read_char();
         }
         self.input[position..self.position].to_string()
@@ -288,7 +287,7 @@ mod tests {
     #[test]
     fn test_via_c_file() {
         let mut lexer = super::Lexer::new(TEST_IN.to_string());
-        let out_put = TEST_OUT.split("\r\n").into_iter().collect::<Vec<&str>>();
+        let out_put = TEST_OUT.split("\n").into_iter().collect::<Vec<&str>>();
         let mut i = 0;
         // let mut cols = 0;
         while !lexer.is_end() {
@@ -298,7 +297,7 @@ mod tests {
                 break;
             }
             assert_eq!(
-                out_put[i],
+                out_put[i].replace("\r", ""),
                 format!("{} -> {}", token.literal, token.token.as_ref()),
                 "token is {} -> {} line {} , but excpected {:?}",
                 token.literal,
