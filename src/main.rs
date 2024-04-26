@@ -17,7 +17,7 @@ print("hello word");
 }
     "#
     .to_string();
-    let mut lexer = Lexer::new(input);
+    let mut lexer = Lexer::new(input , false);
 
     while !lexer.is_end() {
         let token = lexer.next_token();

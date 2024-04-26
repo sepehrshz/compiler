@@ -7,10 +7,11 @@ pub(crate) struct Lexer {
     ch: char,
     line: usize,
     column: usize,
+    take_whitespace: bool,
 }
 
 impl Lexer {
-    pub fn new(input: String) -> Lexer {
+    pub fn new(input: String, take_whitespace: bool) -> Lexer {
         let mut lexer = Lexer {
             input,
             position: 0,
@@ -18,14 +19,38 @@ impl Lexer {
             ch: '\0',
             line: 1,
             column: 0,
+            take_whitespace,
         };
         lexer.read_char();
         lexer
     }
 
     pub fn next_token(&mut self) -> Token {
-        while self.ch == '\r' || self.ch == '\n' || self.ch == '\t' || self.ch == ' ' {
-            self.read_char()
+        if self.peek_char() == '\0' {
+            return Token {
+                token: TokenType::End,
+                literal: "End".to_owned(),
+                line: self.line,
+                column: self.column,
+            };
+        }
+
+        if !self.take_whitespace {
+            while self.ch == '\r' || self.ch == '\n' || self.ch == '\t' || self.ch == ' ' {
+                self.read_char()
+            }
+        } else if self.ch == '\t' {
+            while self.ch == '\t' {
+                self.read_char()
+            }
+        } else if self.ch == ' ' || self.ch == '\n' {
+            self.read_char();
+            return Token {
+                token: TokenType::T_Whitespace,
+                literal: "whitespace".to_owned(),
+                line: self.line,
+                column: self.column,
+            };
         }
         let mut skip = false;
         let (token_type, literal): (TokenType, String) = match self.ch {
@@ -65,6 +90,7 @@ impl Lexer {
                         comment.push(self.ch);
                         self.read_char();
                     }
+                    skip = true;
                     (TokenType::T_Comment, comment)
                 } else {
                     (TokenType::T_AOp_DV, "/".to_owned())
@@ -283,17 +309,22 @@ mod tests {
 
     const TEST_IN: &str = include_str!("./../tests/test.in");
     const TEST_OUT: &str = include_str!("./../tests/test.out");
+    const TEST_OUT_WH: &str = include_str!("./../tests/test_wh.out");
 
     #[test]
     fn test_via_c_file() {
-        let mut lexer = super::Lexer::new(TEST_IN.to_string());
-        let out_put = TEST_OUT.split("\n").into_iter().collect::<Vec<&str>>();
+        let whitespace = true;
+        let mut lexer = super::Lexer::new(TEST_IN.replace("\r", "").to_string(), whitespace);
+        let out_put = if whitespace {
+            TEST_OUT_WH.split("\n").into_iter().collect::<Vec<&str>>()
+        } else {
+            TEST_OUT.split("\n").into_iter().collect::<Vec<&str>>()
+        };
         let mut i = 0;
         // let mut cols = 0;
         while !lexer.is_end() {
             let token = lexer.next_token();
             if token.token == TokenType::End {
-                dbg!("END OF FILE");
                 break;
             }
             assert_eq!(
