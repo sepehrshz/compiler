@@ -1,6 +1,7 @@
 use crate::lexial::Lexer;
-
 pub(crate) mod lexial;
+pub(crate) mod syntax;
+use crate::syntax::parse;
 pub(crate) mod token;
 
 fn main() {
@@ -17,10 +18,19 @@ print("hello word");
 }
     "#
     .to_string();
-    let mut lexer = Lexer::new(input , false);
+    let mut lexer = Lexer::new(input, false);
 
     while !lexer.is_end() {
         let token = lexer.next_token();
         println!("{:?}", token);
+    }
+
+    match syntax::parse(&mut lexer) {
+        Ok(ast) => {
+            println!("{:?}", ast);
+        }
+        Err(err) => {
+            println!("Syntax error: {}", err);
+        }
     }
 }
