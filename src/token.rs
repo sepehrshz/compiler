@@ -1,7 +1,7 @@
-use strum_macros::{ AsRefStr};
+use strum_macros::AsRefStr;
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, PartialEq, Eq , AsRefStr)]
+#[derive(Debug, Clone, PartialEq, Eq, AsRefStr)]
 pub enum TokenType {
     T_Bool,
     T_Break,
@@ -46,10 +46,11 @@ pub enum TokenType {
     T_Whitespace,
     T_Comment,
     ILLEGAL,
-    End
+    T_Newline,
+    End,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
     pub token: TokenType,
     pub line: usize,

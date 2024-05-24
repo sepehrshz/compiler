@@ -1,11 +1,7 @@
-use crate::lexial::Lexer;
 use crate::token::{Token, TokenType};
 
-pub(crate) mod lexial;
-pub(crate) mod token;
-
 #[derive(Debug)]
-enum ASTNode {
+pub enum ASTNode {
     Program(Vec<ASTNode>),
     Function {
         return_type: String,
@@ -27,10 +23,26 @@ enum ASTNode {
         else_branch: Option<Vec<ASTNode>>,
     },
     Loop {
-        initialization: Option<String>,
-        condition: Option<String>,
-        increment: Option<String>,
+        initialization: Option<Box<ASTNode>>,
+        condition: Option<Box<ASTNode>>,
+        increment: Option<Box<ASTNode>>,
         body: Vec<ASTNode>,
+    },
+    BinaryOperation {
+        operator: TokenType,
+        left: Box<ASTNode>,
+        right: Box<ASTNode>,
+    },
+    UnaryOperation {
+        operator: TokenType,
+        operand: Box<ASTNode>,
+    },
+    Literal(String),
+    Identifier(String),
+    Expression(Vec<String>), // Added for IfStatement condition parsing
+    FunctionCall {
+        name: String,
+        arguments: Vec<ASTNode>,
     },
 }
 
@@ -48,58 +60,67 @@ impl<'a> TokenIterator<'a> {
     }
 
     fn next(&mut self) -> Option<&'a Token> {
-        if self.position < self.tokens.len() {
+        while self.position < self.tokens.len() {
+            let token = &self.tokens[self.position];
             self.position += 1;
-            Some(&self.tokens[self.position - 1])
-        } else {
-            None
+            if token.token != TokenType::T_Comment {
+                return Some(token);
+            }
         }
+        None
     }
 
     fn peek(&self) -> Option<&'a Token> {
-        if self.position < self.tokens.len() {
-            Some(&self.tokens[self.position])
-        } else {
-            None
+        let mut position = self.position;
+        while position < self.tokens.len() {
+            let token = &self.tokens[position];
+            if token.token != TokenType::T_Comment {
+                return Some(token);
+            }
+            position += 1;
         }
+        None
     }
 }
 
-pub fn parse(lexer: &mut Lexer) -> Result<ASTNode, String> {
-    let mut tokens = Vec::new();
-    while let Some(token) = lexer.next_token() {
-        tokens.push(token?);
-    }
-    parse_program(&tokens)
-}
-
-fn parse_program(tokens: &[Token]) -> Result<ASTNode, String> {
+pub fn parse_program(tokens: &[Token]) -> Result<ASTNode, String> {
     let mut iter = TokenIterator::new(tokens);
     let mut nodes = Vec::new();
+    let mut line_number = 1;
 
     while let Some(token) = iter.peek() {
         match token.token {
             TokenType::T_Int => {
-                nodes.push(parse_function(&mut iter)?);
+                nodes.push(parse_function(&mut iter, line_number)?);
             }
-            _ => return Err(format!("Unexpected token: {:?}", token)),
+            TokenType::T_Newline => {
+                iter.next();
+                line_number += 1;
+            }
+            _ => {
+                return Err(format!(
+                    "Unexpected token '{}' at line {}",
+                    token.literal, line_number
+                ));
+            }
         }
     }
 
     Ok(ASTNode::Program(nodes))
 }
 
-fn parse_function(iter: &mut TokenIterator) -> Result<ASTNode, String> {
+fn parse_function(iter: &mut TokenIterator, mut line_number: usize) -> Result<ASTNode, String> {
+    line_number += 1;
     let return_type = if let Some(token) = iter.next() {
         token.literal.clone()
     } else {
-        return Err("Expected return type".to_string());
+        return Err(format!("Expected return type at line {}", line_number));
     };
 
     let name = if let Some(token) = iter.next() {
         token.literal.clone()
     } else {
-        return Err("Expected function name".to_string());
+        return Err(format!("Expected function name at line {}", line_number));
     };
 
     let mut params = Vec::new();
@@ -116,15 +137,23 @@ fn parse_function(iter: &mut TokenIterator) -> Result<ASTNode, String> {
                         let param_name = token.literal.clone();
                         params.push((param_type, param_name));
                     } else {
-                        return Err("Expected parameter name".to_string());
+                        return Err(format!("Expected parameter name at line {}", line_number));
                     }
                 }
                 TokenType::T_RP => break,
-                _ => return Err(format!("Unexpected token in parameters: {:?}", token)),
+                _ => {
+                    return Err(format!(
+                        "Unexpected token '{}' in parameters at line {}",
+                        token.literal, line_number
+                    ))
+                }
             }
         }
     } else {
-        return Err("Expected '(' after function name".to_string());
+        return Err(format!(
+            "Expected '(' after function name at line {}",
+            line_number
+        ));
     }
 
     let mut body = Vec::new();
@@ -138,11 +167,14 @@ fn parse_function(iter: &mut TokenIterator) -> Result<ASTNode, String> {
                 iter.next(); // Consume the closing brace
                 break;
             } else {
-                body.push(parse_statement(iter)?);
+                body.push(parse_statement(iter, line_number)?);
             }
         }
     } else {
-        return Err("Expected '{' to start function body".to_string());
+        return Err(format!(
+            "Expected '{{' to start function body at line {}",
+            line_number
+        ));
     }
 
     Ok(ASTNode::Function {
@@ -153,31 +185,44 @@ fn parse_function(iter: &mut TokenIterator) -> Result<ASTNode, String> {
     })
 }
 
-fn parse_statement(iter: &mut TokenIterator) -> Result<ASTNode, String> {
+fn parse_statement(iter: &mut TokenIterator, mut line_number: usize) -> Result<ASTNode, String> {
+    line_number += 1;
     if let Some(token) = iter.peek() {
         match token.token {
-            TokenType::T_Id => parse_variable_declaration(iter),
-            TokenType::T_Print => parse_print_statement(iter),
-            TokenType::T_If => parse_if_statement(iter),
-            TokenType::T_For => parse_loop(iter),
-            _ => Err(format!("Unexpected token in statement: {:?}", token)),
+            TokenType::T_Id => parse_variable_declaration(iter, line_number),
+            TokenType::T_Int => parse_variable_declaration(iter, line_number),
+            TokenType::T_Print => parse_print_statement(iter, line_number),
+            TokenType::T_If => parse_if_statement(iter, line_number),
+            TokenType::T_For => parse_loop(iter, line_number),
+            TokenType::T_Semicolon => {
+                iter.next(); // Consume the ';' token
+                Ok(ASTNode::Literal(";".to_string()))
+            }
+            _ => Err(format!(
+                "Unexpected token '{}' in statement at line {}",
+                token.literal, line_number
+            )),
         }
     } else {
-        Err("Unexpected end of input".to_string())
+        Err(format!("Unexpected end of input at line {}", line_number))
     }
 }
 
-fn parse_variable_declaration(iter: &mut TokenIterator) -> Result<ASTNode, String> {
+fn parse_variable_declaration(
+    iter: &mut TokenIterator,
+    mut line_number: usize,
+) -> Result<ASTNode, String> {
+    line_number += 1;
     let var_type = if let Some(token) = iter.next() {
         token.literal.clone()
     } else {
-        return Err("Expected variable type".to_string());
+        return Err(format!("Expected variable type at line {}", line_number));
     };
 
     let name = if let Some(token) = iter.next() {
         token.literal.clone()
     } else {
-        return Err("Expected variable name".to_string());
+        return Err(format!("Expected variable name at line {}", line_number));
     };
 
     let value = if let Some(Token {
@@ -189,7 +234,7 @@ fn parse_variable_declaration(iter: &mut TokenIterator) -> Result<ASTNode, Strin
         if let Some(token) = iter.next() {
             Some(token.literal.clone())
         } else {
-            return Err("Expected value after '='".to_string());
+            return Err(format!("Expected value after '=' at line {}", line_number));
         }
     } else {
         None
@@ -202,8 +247,12 @@ fn parse_variable_declaration(iter: &mut TokenIterator) -> Result<ASTNode, Strin
     })
 }
 
-fn parse_print_statement(iter: &mut TokenIterator) -> Result<ASTNode, String> {
-    let value = if let Some(Token {
+fn parse_print_statement(
+    iter: &mut TokenIterator,
+    mut line_number: usize,
+) -> Result<ASTNode, String> {
+    line_number += 1;
+    if let Some(Token {
         token: TokenType::T_LP,
         ..
     }) = iter.next()
@@ -218,69 +267,131 @@ fn parse_print_statement(iter: &mut TokenIterator) -> Result<ASTNode, String> {
                 {
                     return Ok(ASTNode::PrintStatement { value });
                 } else {
-                    return Err("Expected ')' after print statement value".to_string());
+                    return Err(format!(
+                        "Expected ')' after print statement value at line {}",
+                        line_number
+                    ));
                 }
             } else {
-                return Err("Invalid print statement value".to_string());
+                return Err(format!(
+                    "Invalid print statement value at line {}",
+                    line_number
+                ));
             }
         } else {
-            return Err("Expected value after '(' in print statement".to_string());
+            return Err(format!(
+                "Expected value after '(' in print statement at line {}",
+                line_number
+            ));
         }
     } else {
-        return Err("Expected '(' in print statement".to_string());
-    };
+        return Err(format!(
+            "Expected '(' in print statement at line {}",
+            line_number
+        ));
+    }
 }
 
-fn parse_if_statement(iter: &mut TokenIterator) -> Result<ASTNode, String> {
-    let mut condition = Vec::new();
-    while let Some(token) = iter.next() {
-        match token.token {
-            TokenType::T_LP => break,
-            _ => condition.push(token.literal.clone()),
-        }
-    }
+fn parse_if_statement(iter: &mut TokenIterator, mut line_number: usize) -> Result<ASTNode, String> {
+    line_number += 1;
+    // Consume the 'if' token
+    iter.next();
 
-    let mut then_branch = Vec::new();
-    while let Some(token) = iter.peek() {
-        match token.token {
-            TokenType::T_Else | TokenType::T_End => break,
-            _ => then_branch.push(parse_statement(iter)?),
-        }
-    }
-
-    let else_branch = if let Some(Token {
-        token: TokenType::T_Else,
+    // Parse the condition
+    if let Some(Token {
+        token: TokenType::T_LP,
         ..
-    }) = iter.peek()
+    }) = iter.next()
     {
-        iter.next(); // Consume the 'else' token
-        let mut else_branch = Vec::new();
-        while let Some(token) = iter.peek() {
-            match token.token {
-                TokenType::T_End => break,
-                _ => else_branch.push(parse_statement(iter)?),
-            }
-        }
-        Some(else_branch)
-    } else {
-        None
-    };
+        let condition = parse_expression(iter, line_number)?;
 
-    Ok(ASTNode::IfStatement {
-        condition: Box::new(ASTNode::Expression(condition)),
-        then_branch,
-        else_branch,
-    })
+        if let Some(Token {
+            token: TokenType::T_RP,
+            ..
+        }) = iter.next()
+        {
+            // Parse the 'then' branch
+            if let Some(Token {
+                token: TokenType::T_LC,
+                ..
+            }) = iter.next()
+            {
+                let mut then_branch = Vec::new();
+                while let Some(token) = iter.peek() {
+                    if token.token == TokenType::T_RC {
+                        iter.next(); // Consume the '}'
+                        break;
+                    } else {
+                        then_branch.push(parse_statement(iter, line_number)?);
+                    }
+                }
+
+                // Check for an 'else' branch
+                let else_branch = if let Some(Token {
+                    token: TokenType::T_Else,
+                    ..
+                }) = iter.peek()
+                {
+                    iter.next(); // Consume the 'else'
+                    if let Some(Token {
+                        token: TokenType::T_LC,
+                        ..
+                    }) = iter.next()
+                    {
+                        let mut else_branch = Vec::new();
+                        while let Some(token) = iter.peek() {
+                            if token.token == TokenType::T_RC {
+                                iter.next(); // Consume the '}'
+                                break;
+                            } else {
+                                else_branch.push(parse_statement(iter, line_number)?);
+                            }
+                        }
+                        Some(else_branch)
+                    } else {
+                        return Err(format!(
+                            "Expected '{{' after 'else' at line {}",
+                            line_number
+                        ));
+                    }
+                } else {
+                    None
+                };
+
+                return Ok(ASTNode::IfStatement {
+                    condition: Box::new(condition),
+                    then_branch,
+                    else_branch,
+                });
+            } else {
+                return Err(format!(
+                    "Expected '{{' after condition in 'if' statement at line {}",
+                    line_number
+                ));
+            }
+        } else {
+            return Err(format!(
+                "Expected ')' after condition in 'if' statement at line {}",
+                line_number
+            ));
+        }
+    } else {
+        return Err(format!("Expected '(' after 'if' at line {}", line_number));
+    }
 }
 
-fn parse_loop(iter: &mut TokenIterator) -> Result<ASTNode, String> {
+fn parse_loop(iter: &mut TokenIterator, mut line_number: usize) -> Result<ASTNode, String> {
+    line_number += 1;
     let initialization = if let Some(token) = iter.peek() {
         match token.token {
             TokenType::T_Semicolon => None,
-            _ => Some(parse_variable_declaration(iter)?),
+            _ => Some(Box::new(parse_variable_declaration(iter, line_number)?)),
         }
     } else {
-        return Err("Expected loop initialization".to_string());
+        return Err(format!(
+            "Expected loop initialization at line {}",
+            line_number
+        ));
     };
 
     if let Some(Token {
@@ -290,16 +401,19 @@ fn parse_loop(iter: &mut TokenIterator) -> Result<ASTNode, String> {
     {
         // Consume the semicolon after initialization
     } else {
-        return Err("Expected ';' after loop initialization".to_string());
+        return Err(format!(
+            "Expected ';' after loop initialization at line {}",
+            line_number
+        ));
     }
 
     let condition = if let Some(token) = iter.peek() {
         match token.token {
             TokenType::T_Semicolon => None,
-            _ => Some(parse_expression(iter)?),
+            _ => Some(Box::new(parse_expression(iter, line_number)?)),
         }
     } else {
-        return Err("Expected loop condition".to_string());
+        return Err(format!("Expected loop condition at line {}", line_number));
     };
 
     if let Some(Token {
@@ -309,16 +423,26 @@ fn parse_loop(iter: &mut TokenIterator) -> Result<ASTNode, String> {
     {
         // Consume the semicolon after condition
     } else {
-        return Err("Expected ';' after loop condition".to_string());
+        return Err(format!(
+            "Expected ';' after loop condition at line {}",
+            line_number
+        ));
     }
 
     let increment = if let Some(token) = iter.peek() {
         match token.token {
             TokenType::T_LC => None,
-            _ => Some(parse_expression(iter)?),
+            _ => {
+                let increment_expr = parse_expression(iter, line_number)?;
+                if let ASTNode::Literal(literal) = increment_expr {
+                    Some(Box::new(ASTNode::Literal(literal)))
+                } else {
+                    Some(Box::new(increment_expr))
+                }
+            }
         }
     } else {
-        return Err("Expected loop increment".to_string());
+        return Err(format!("Expected loop increment at line {}", line_number));
     };
 
     let mut body = Vec::new();
@@ -333,11 +457,14 @@ fn parse_loop(iter: &mut TokenIterator) -> Result<ASTNode, String> {
                     iter.next(); // Consume the closing brace
                     break;
                 }
-                _ => body.push(parse_statement(iter)?),
+                _ => body.push(parse_statement(iter, line_number)?),
             }
         }
     } else {
-        return Err("Expected '{' to start loop body".to_string());
+        return Err(format!(
+            "Expected '{{' to start loop body at line {}",
+            line_number
+        ));
     }
 
     Ok(ASTNode::Loop {
@@ -348,15 +475,28 @@ fn parse_loop(iter: &mut TokenIterator) -> Result<ASTNode, String> {
     })
 }
 
-fn parse_expression(iter: &mut TokenIterator) -> Result<ASTNode, String> {
-    parse_binary_expression(iter, 1)
+fn parse_expression(iter: &mut TokenIterator, mut line_number: usize) -> Result<ASTNode, String> {
+    line_number += 1;
+    // For simplicity, just directly returning a string expression
+    // In reality, you'd parse based on your language's expression syntax
+    if let Some(token) = iter.next() {
+        match token.token {
+            TokenType::T_Id | TokenType::T_Decimal | TokenType::T_String => {
+                Ok(ASTNode::Expression(vec![token.literal.clone()]))
+            }
+            _ => Err("Invalid expression".to_string()),
+        }
+    } else {
+        Err("Expected expression".to_string())
+    }
 }
 
 fn parse_binary_expression(
     iter: &mut TokenIterator,
     min_precedence: u8,
+    line_number: usize,
 ) -> Result<ASTNode, String> {
-    let mut left_expr = parse_primary_expression(iter)?;
+    let mut left_expr = parse_primary_expression(iter, line_number)?;
 
     while let Some(token) = iter.peek() {
         match token.token {
@@ -376,10 +516,11 @@ fn parse_binary_expression(
                 if op_precedence < min_precedence {
                     break;
                 }
+                let operator = token.token.clone();
                 iter.next(); // Consume the operator token
-                let right_expr = parse_binary_expression(iter, op_precedence + 1)?;
+                let right_expr = parse_binary_expression(iter, op_precedence + 1, line_number)?;
                 left_expr = ASTNode::BinaryOperation {
-                    operator: token.token.clone(),
+                    operator,
                     left: Box::new(left_expr),
                     right: Box::new(right_expr),
                 };
@@ -391,11 +532,14 @@ fn parse_binary_expression(
     Ok(left_expr)
 }
 
-fn parse_primary_expression(iter: &mut TokenIterator) -> Result<ASTNode, String> {
+fn parse_primary_expression(
+    iter: &mut TokenIterator,
+    line_number: usize,
+) -> Result<ASTNode, String> {
     if let Some(token) = iter.next() {
         match token.token {
             TokenType::T_Id => {
-                let mut expr = ASTNode::Identifier(token.literal.clone());
+                let mut expr = ASTNode::Identifier(token.literal.to_string());
                 if let Some(Token {
                     token: TokenType::T_LP,
                     ..
@@ -414,12 +558,12 @@ fn parse_primary_expression(iter: &mut TokenIterator) -> Result<ASTNode, String>
                                 iter.next(); // Consume the ',' token
                             }
                             _ => {
-                                arguments.push(parse_expression(iter)?);
+                                arguments.push(parse_expression(iter, line_number)?);
                             }
                         }
                     }
                     expr = ASTNode::FunctionCall {
-                        name: token.literal,
+                        name: token.literal.to_string(),
                         arguments,
                     };
                 }
@@ -428,9 +572,9 @@ fn parse_primary_expression(iter: &mut TokenIterator) -> Result<ASTNode, String>
             TokenType::T_Decimal
             | TokenType::T_Hexadecimal
             | TokenType::T_Character
-            | TokenType::T_String => Ok(ASTNode::Literal(token.literal)),
+            | TokenType::T_String => Ok(ASTNode::Literal(token.literal.clone())),
             TokenType::T_LP => {
-                let expr = parse_binary_expression(iter, 1)?;
+                let expr = parse_binary_expression(iter, 1, line_number)?;
                 if let Some(Token {
                     token: TokenType::T_RP,
                     ..
@@ -438,21 +582,24 @@ fn parse_primary_expression(iter: &mut TokenIterator) -> Result<ASTNode, String>
                 {
                     Ok(expr)
                 } else {
-                    Err("Expected ')' after expression".to_string())
+                    Err(format!(
+                        "Expected ')' after expression at line {}",
+                        line_number
+                    ))
                 }
             }
             TokenType::T_AOp_PL | TokenType::T_AOp_MN | TokenType::T_LOp_NOT => {
                 let operator = token.token.clone();
-                let expr = parse_primary_expression(iter)?;
+                let expr = parse_primary_expression(iter, line_number)?;
                 Ok(ASTNode::UnaryOperation {
                     operator,
                     operand: Box::new(expr),
                 })
             }
-            _ => Err("Invalid expression".to_string()),
+            _ => Err(format!("Invalid expression at line {}", line_number)),
         }
     } else {
-        Err("Expected expression".to_string())
+        Err(format!("Expected expression at line {}", line_number))
     }
 }
 
