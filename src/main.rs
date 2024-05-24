@@ -21,8 +21,8 @@ fn main() {
     int main(){
         int x = 2;
         //sajk hasklf j
-        int DAQ_signal_handler_IO ( int status ) {
-            wait_flag = FALSE;
+        if (x == 2) {
+            x = 3;
         }
     }"#
     .to_string();
