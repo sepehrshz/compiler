@@ -531,7 +531,7 @@ fn parse_binary_expression(
 
     Ok(left_expr)
 }
-
+////f
 fn parse_primary_expression(
     iter: &mut TokenIterator,
     line_number: usize,
@@ -539,7 +539,7 @@ fn parse_primary_expression(
     if let Some(token) = iter.next() {
         match token.token {
             TokenType::T_Id => {
-                let mut expr = ASTNode::Identifier(token.literal.to_string());
+                let mut expr = ASTNode::Identifier(token.literal.clone());
                 if let Some(Token {
                     token: TokenType::T_LP,
                     ..
@@ -563,7 +563,7 @@ fn parse_primary_expression(
                         }
                     }
                     expr = ASTNode::FunctionCall {
-                        name: token.literal.to_string(),
+                        name: token.literal.clone(), // clone to avoid moving
                         arguments,
                     };
                 }
@@ -572,7 +572,7 @@ fn parse_primary_expression(
             TokenType::T_Decimal
             | TokenType::T_Hexadecimal
             | TokenType::T_Character
-            | TokenType::T_String => Ok(ASTNode::Literal(token.literal.clone())),
+            | TokenType::T_String => Ok(ASTNode::Literal(token.literal.clone())), // clone to avoid moving
             TokenType::T_LP => {
                 let expr = parse_binary_expression(iter, 1, line_number)?;
                 if let Some(Token {
@@ -582,10 +582,7 @@ fn parse_primary_expression(
                 {
                     Ok(expr)
                 } else {
-                    Err(format!(
-                        "Expected ')' after expression at line {}",
-                        line_number
-                    ))
+                    Err("Expected ')' after expression".to_string())
                 }
             }
             TokenType::T_AOp_PL | TokenType::T_AOp_MN | TokenType::T_LOp_NOT => {
@@ -596,12 +593,83 @@ fn parse_primary_expression(
                     operand: Box::new(expr),
                 })
             }
-            _ => Err(format!("Invalid expression at line {}", line_number)),
+            _ => Err("Invalid expression".to_string()),
         }
     } else {
-        Err(format!("Expected expression at line {}", line_number))
+        Err("Expected expression".to_string())
     }
 }
+////a
+// fn parse_primary_expression(
+//     iter: &mut TokenIterator,
+//     line_number: usize,
+// ) -> Result<ASTNode, String> {
+//     if let Some(token) = iter.next() {
+//         match token.token {
+//             TokenType::T_Id => {
+//                 let mut expr = ASTNode::Identifier(token.literal.to_string());
+//                 if let Some(Token {
+//                     token: TokenType::T_LP,
+//                     ..
+//                 }) = iter.peek()
+//                 {
+//                     // Function call
+//                     iter.next(); // Consume the '(' token
+//                     let mut arguments = Vec::new();
+//                     while let Some(token) = iter.peek() {
+//                         match token.token {
+//                             TokenType::T_RP => {
+//                                 iter.next(); // Consume the ')' token
+//                                 break;
+//                             }
+//                             TokenType::T_Comma => {
+//                                 iter.next(); // Consume the ',' token
+//                             }
+//                             _ => {
+//                                 arguments.push(parse_expression(iter, line_number)?);
+//                             }
+//                         }
+//                     }
+//                     expr = ASTNode::FunctionCall {
+//                         name: token.literal.to_string(),
+//                         arguments,
+//                     };
+//                 }
+//                 Ok(expr)
+//             }
+//             TokenType::T_Decimal
+//             | TokenType::T_Hexadecimal
+//             | TokenType::T_Character
+//             | TokenType::T_String => Ok(ASTNode::Literal(token.literal.clone())),
+//             TokenType::T_LP => {
+//                 let expr = parse_binary_expression(iter, 1, line_number)?;
+//                 if let Some(Token {
+//                     token: TokenType::T_RP,
+//                     ..
+//                 }) = iter.next()
+//                 {
+//                     Ok(expr)
+//                 } else {
+//                     Err(format!(
+//                         "Expected ')' after expression at line {}",
+//                         line_number
+//                     ))
+//                 }
+//             }
+//             TokenType::T_AOp_PL | TokenType::T_AOp_MN | TokenType::T_LOp_NOT => {
+//                 let operator = token.token.clone();
+//                 let expr = parse_primary_expression(iter, line_number)?;
+//                 Ok(ASTNode::UnaryOperation {
+//                     operator,
+//                     operand: Box::new(expr),
+//                 })
+//             }
+//             _ => Err(format!("Invalid expression at line {}", line_number)),
+//         }
+//     } else {
+//         Err(format!("Expected expression at line {}", line_number))
+//     }
+// }
 
 fn operator_precedence(token: &TokenType) -> u8 {
     match token {
