@@ -1,46 +1,20 @@
-use crate::lexial::Lexer;
+use syntax::parser::Parser;
+
 pub(crate) mod lexial;
 pub(crate) mod syntax;
 pub(crate) mod token;
 
+const TEST_IN: &str = include_str!("./../tests/test.in");
+const GRAMMER: &str = include_str!("./../grammer.g");
 fn main() {
-    // let input = r#"
-    //     int x = 2;
-    //     // sajkd hasklf j
-    // void DAQ_signal_handler_IO ( int status )
-    // {
-    //     wait_flag = FALSE;
-    // }
-
-    // int main() {
-    // print("hello word");
-    // }
-    //     "#
-    // .to_string();
-    let input = r#"
-    int main(){
-        int x = 2;
-        //sajk hasklf j
-        if (x == 2) {
-            x = 3;
-        }
-    }"#
-    .to_string();
-    let mut lexer = Lexer::new(input, false);
-
-    let mut tokens = Vec::new();
-    while !lexer.is_end() {
-        let token = lexer.next_token();
-        println!("{:?}", token);
-        tokens.push(token);
-    }
-
-    match syntax::parse_program(&tokens) {
+    // first::first_and_follow(GRAMMER.to_owned());
+    let mut syntax = Parser::new(TEST_IN.to_owned());
+    match syntax.parse() {
         Ok(ast) => {
             println!("{:?}", ast);
         }
         Err(err) => {
-            println!("Syntax error: {}", err);
+            panic!("Syntax error: {}", err);
         }
     }
 }

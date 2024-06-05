@@ -301,6 +301,31 @@ impl Lexer {
             _ => TokenType::ILLEGAL,
         }
     }
+
+    pub fn to_vec(&mut self) -> Vec<Token> {
+        let mut tokens = Vec::with_capacity(100);
+        while !self.is_end() {
+            let token = self.next_token();
+            if token.token == TokenType::T_Comment {
+                continue;
+            }
+            tokens.push(token);
+        }
+        tokens
+    }
+}
+
+impl Iterator for Lexer {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let token = self.next_token();
+        if token.token != TokenType::T_Comment {
+            Some(token)
+        } else {
+            self.next()
+        }
+    }
 }
 
 #[cfg(test)]
@@ -313,7 +338,7 @@ mod tests {
 
     #[test]
     fn test_via_c_file() {
-        let whitespace = true;
+        let whitespace = false;
         let mut lexer = super::Lexer::new(TEST_IN.replace("\r", "").to_string(), whitespace);
         let out_put = if whitespace {
             TEST_OUT_WH.split("\n").into_iter().collect::<Vec<&str>>()

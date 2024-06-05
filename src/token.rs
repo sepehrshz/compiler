@@ -1,7 +1,7 @@
 use strum_macros::AsRefStr;
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone, PartialEq, Eq, AsRefStr)]
+#[derive(Debug, Clone, PartialEq, Eq, AsRefStr , Hash)]
 pub enum TokenType {
     T_Bool,
     T_Break,
