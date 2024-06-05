@@ -1,12 +1,12 @@
 use crate::token::Token;
 use crate::{lexial::Lexer, token::TokenType};
 
-use super::{AstNode, NonTerminal, ParsingTable, Symbol};
+use super::{ASTNode, NonTerminal, ParsingTable, Symbol};
 pub(crate) struct Parser {
     parsing_table: ParsingTable,
     input: Vec<Token>,
     stack: Vec<Symbol>,
-    ast_stack: Vec<AstNode>, // Stack for AST nodes.
+    ast_stack: Vec<ASTNode>, // Stack for AST nodes.
 }
 
 impl Parser {
@@ -19,7 +19,7 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Result<AstNode, String> {
+    pub fn parse(&mut self) -> Result<ASTNode, String> {
         while let Some(symbol) = self.stack.pop() {
             match symbol {
                 Symbol::NonTerminal(non_terminal) => {
@@ -59,33 +59,33 @@ impl Parser {
                     // Perform actions to generate AST nodes.
                     match action.as_str() {
                         "make_number" => {
-                            if let Some(token) = self.input.first() {
-                                self.ast_stack.push(AstNode::Number(1));
-                            }
+                            // if let Some(token) = self.input.first() {
+                            //     self.ast_stack.push(AstNode::Number(1));
+                            // }
                         }
 
                         "make_binary_expr" => {
-                            let right = self.ast_stack.pop().ok_or("Missing right operand")?;
-                            let op = self.ast_stack.pop().ok_or("Missing operator")?;
-                            let left = self.ast_stack.pop().ok_or("Missing left operand")?;
-                            if let (AstNode::Number(left_val), AstNode::Number(right_val)) =
-                                (left, right)
-                            {
-                                let operator = match op {
-                                    AstNode::Number(op_val) => match op_val {
-                                        1 => "+",
-                                        2 => "*",
-                                        _ => return Err("Unknown operator".to_string()),
-                                    },
-                                    _ => return Err("Expected operator".to_string()),
-                                };
-                                // let binary_expr = AstNode::BinaryExpr(
-                                // Box::new(left),
-                                // operator.to_string(),
-                                // Box::new(right),
-                                // );
-                                // self.ast_stack.push(binary_expr);
-                            }
+                            // let right = self.ast_stack.pop().ok_or("Missing right operand")?;
+                            // let op = self.ast_stack.pop().ok_or("Missing operator")?;
+                            // let left = self.ast_stack.pop().ok_or("Missing left operand")?;
+                            // if let (AstNode::Number(left_val), AstNode::Number(right_val)) =
+                            //     (left, right)
+                            // {
+                            //     let operator = match op {
+                            //         AstNode::Number(op_val) => match op_val {
+                            //             1 => "+",
+                            //             2 => "*",
+                            //             _ => return Err("Unknown operator".to_string()),
+                            //         },
+                            //         _ => return Err("Expected operator".to_string()),
+                            //     };
+                            //     // let binary_expr = AstNode::BinaryExpr(
+                            //     // Box::new(left),
+                            //     // operator.to_string(),
+                            //     // Box::new(right),
+                            //     // );
+                            //     // self.ast_stack.push(binary_expr);
+                            // }
                         }
                         // Add other actions as needed.
                         _ => return Err("Unknown action".to_string()),

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 pub mod parser;
 
-use crate::token::{ TokenType};
+use crate::token::TokenType;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum NonTerminal {
@@ -67,18 +67,55 @@ pub type ParsingTable = HashMap<(NonTerminal, TokenType), Vec<Symbol>>;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Symbol {
     Token(TokenType),
-    NonTerminal(NonTerminal),    Action(String), // Used to denote actions for AST generation.
-
-
+    NonTerminal(NonTerminal),
+    Action(String), // Used to denote actions for AST generation.
 }
 
 #[derive(Debug)]
-pub enum AstNode {
-    Number(i32),
-    BinaryExpr(Box<AstNode>, String, Box<AstNode>),
-    // Add other node types as needed.
+pub enum ASTNode {
+    Program(Vec<ASTNode>),
+    Function {
+        return_type: String,
+        name: String,
+        params: Vec<(String, String)>,
+        body: Vec<ASTNode>,
+    },
+    VariableDeclaration {
+        var_type: String,
+        name: String,
+        value: Option<String>,
+    },
+    PrintStatement {
+        value: String,
+    },
+    IfStatement {
+        condition: Box<ASTNode>,
+        then_branch: Vec<ASTNode>,
+        else_branch: Option<Vec<ASTNode>>,
+    },
+    Loop {
+        initialization: Option<Box<ASTNode>>,
+        condition: Option<Box<ASTNode>>,
+        increment: Option<Box<ASTNode>>,
+        body: Vec<ASTNode>,
+    },
+    BinaryOperation {
+        operator: TokenType,
+        left: Box<ASTNode>,
+        right: Box<ASTNode>,
+    },
+    UnaryOperation {
+        operator: TokenType,
+        operand: Box<ASTNode>,
+    },
+    Literal(String),
+    Identifier(String),
+    Expression(Vec<String>), // Added for IfStatement condition parsing
+    FunctionCall {
+        name: String,
+        arguments: Vec<ASTNode>,
+    },
 }
-
 
 // Implement the LL(1) parser.
 
@@ -1559,4 +1596,3 @@ pub fn add_rules() -> ParsingTable {
     //     Err(e) => println!("Parsing error: {}", e),
     // }
 }
-
