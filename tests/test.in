@@ -1,5 +1,4 @@
 int test_function(int a, int b, bool c){
-	// this is a function
 	if (c == true){
 		return a+b;
 	}
@@ -18,7 +17,6 @@ int main(){
 			print("" ,String_1);
 			print("" ,j);
 			print("" , _assign1);
-			// print("" , test_function(i,j,add));
 		}
 	}
 	add = false;
@@ -34,7 +32,6 @@ int main(){
 			print("" ,String_2);
 			print("" ,j);
 			print("" ,_assign1);
-			// print("" ,test_function(i, j, add));
 		}
 	}
 	print("this is\" a whole string no other token like '=' or 'else' or even \\\\comment should be recogized");

@@ -1,8 +1,12 @@
+use std::default;
+
+use strum::EnumString;
 use strum_macros::AsRefStr;
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone, PartialEq, Eq, AsRefStr , Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, AsRefStr, Hash, EnumString, Default)]
 pub enum TokenType {
+    #[default]
     T_Bool,
     T_Break,
     T_Char,
