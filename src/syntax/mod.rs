@@ -1,4 +1,4 @@
-use std::{collections::HashMap, default};
+use std::collections::HashMap;
 
 pub mod parser;
 
@@ -6,7 +6,7 @@ use strum::{AsRefStr, EnumString};
 
 use crate::token::TokenType;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, EnumString, Default,AsRefStr)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, EnumString, Default, AsRefStr)]
 pub enum NonTerminal {
     #[default]
     Program,
@@ -67,14 +67,13 @@ pub enum NonTerminal {
 
 pub type ParsingTable = HashMap<(NonTerminal, TokenType), Vec<Symbol>>;
 
-#[derive(Debug, Clone, PartialEq, EnumString, Default , AsRefStr)]
+#[derive(Debug, Clone, PartialEq, EnumString, Default, AsRefStr)]
 pub enum Symbol {
     Token(TokenType),
     NonTerminal(NonTerminal),
     #[default]
     Def,
 }
-
 
 pub fn add_rules() -> ParsingTable {
     // Define the parsing table based on the grammar.

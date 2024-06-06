@@ -1,5 +1,3 @@
-use std::default;
-
 use strum::EnumString;
 use strum_macros::AsRefStr;
 

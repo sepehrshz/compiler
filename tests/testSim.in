@@ -1,6 +1,6 @@
-int test_function (int a, int b, c) {
+int test_function(int a, int b, bool c) {
 	if (c == true){
-		ret a+b;
+		return a+b;
 	}
 	else {
 		return a-b;

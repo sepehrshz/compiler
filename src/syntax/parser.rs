@@ -1,21 +1,16 @@
-use std::collections::HashSet;
+
+use slab_tree::TreeBuilder;
 
 use crate::token::Token;
 use crate::{lexial::Lexer, token::TokenType};
 
 use super::{NonTerminal, ParsingTable, Symbol};
 
-#[derive(Debug)]
-pub struct ParseTreeNode {
-    pub symbol: Symbol,
-    pub children: Vec<ParseTreeNode>,
-}
 
 pub(crate) struct Parser {
     parsing_table: ParsingTable,
     input: Vec<Token>,
     stack: Vec<Symbol>,
-    // ast_stack: Vec<AST>, // Stack for AST nodes.
 }
 
 impl Parser {
@@ -28,11 +23,11 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Result<ParseTreeNode, String> {
-        let mut root = ParseTreeNode {
-            symbol: Symbol::NonTerminal(NonTerminal::Program),
-            children: vec![],
-        };
+    pub fn parse(&mut self) -> Result<String, String> {
+        let mut tree = TreeBuilder::new()
+            .with_root(Symbol::NonTerminal(NonTerminal::Program))
+            .build();
+        let mut index_stack = vec![tree.root_id().unwrap()];
 
         while let Some(symbol) = self.stack.pop() {
             match symbol {
@@ -47,22 +42,17 @@ impl Parser {
                                 continue;
                             }
 
-                            // let mut ast_node = self.ast_stack.pop().unwrap();
-
-                            let mut node = ParseTreeNode {
-                                symbol: Symbol::NonTerminal(non_terminal),
-                                children: vec![],
-                            };
+                            let ast_node = index_stack.pop().unwrap();
 
                             for symbol in production.iter().rev() {
                                 self.stack.push(symbol.clone());
-
-                                node.children.push(ParseTreeNode {
-                                    symbol: symbol.clone(),
-                                    children: vec![],
-                                });
+                                index_stack.push(
+                                    tree.get_mut(ast_node)
+                                        .unwrap()
+                                        .append(symbol.clone())
+                                        .node_id(),
+                                );
                             }
-                            root.children.push(node)
                         }
                         None => {
                             println!("No rule for {:?}  with {:?}", &non_terminal, &token);
@@ -73,7 +63,7 @@ impl Parser {
                 Symbol::Token(expected_token) => {
                     if let Some(token) = self.input.first() {
                         if expected_token == token.token {
-                            // self.ast_stack.pop();
+                            index_stack.pop();
                             self.input.remove(0); // Consume the token.
                         } else {
                             println!("Expected {:?}, found {:?}", expected_token, token);
@@ -90,11 +80,12 @@ impl Parser {
         if self.input.first().unwrap().token != TokenType::End {
             return Err("Input not fully consumed".to_string());
         }
-
-        Ok(root)
+        let mut s = String::new();
+        tree.write_formatted(&mut s).unwrap();
+        Ok(s)
     }
     fn is_synchronization_token(&self, token: &TokenType) -> bool {
-        [TokenType::T_Semicolon , TokenType::T_RP].contains(&token)
+        [TokenType::T_Semicolon, TokenType::T_RP].contains(&token)
     }
 
     fn handel_err(&mut self) {
@@ -104,7 +95,6 @@ impl Parser {
             }
         }
 
-        // Skip input tokens until a synchronization token is found
         while let Some(next_token) = self.input.iter().peekable().peek() {
             if self.is_synchronization_token(&next_token.token) {
                 break;
