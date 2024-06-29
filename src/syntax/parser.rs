@@ -1,11 +1,9 @@
-
-use slab_tree::TreeBuilder;
+use slab_tree::{Tree, TreeBuilder};
 
 use crate::token::Token;
 use crate::{lexial::Lexer, token::TokenType};
 
-use super::{NonTerminal, ParsingTable, Symbol};
-
+use super::{NonTerminal, ParsingTable, Symbol, SymbolTree};
 
 pub(crate) struct Parser {
     parsing_table: ParsingTable,
@@ -23,9 +21,9 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Result<String, String> {
+    pub fn parse(&mut self) -> Result<Tree<SymbolTree>, String> {
         let mut tree = TreeBuilder::new()
-            .with_root(Symbol::NonTerminal(NonTerminal::Program))
+            .with_root(SymbolTree::NonTerminal(NonTerminal::Program))
             .build();
         let mut index_stack = vec![tree.root_id().unwrap()];
 
@@ -49,7 +47,15 @@ impl Parser {
                                 index_stack.push(
                                     tree.get_mut(ast_node)
                                         .unwrap()
-                                        .append(symbol.clone())
+                                        .append(match symbol {
+                                            Symbol::Token(T) => {
+                                                SymbolTree::Token((T.clone(), token.literal))
+                                            }
+                                            Symbol::NonTerminal(non) => {
+                                                SymbolTree::NonTerminal(non.clone())
+                                            }
+                                            Symbol::Def => todo!(),
+                                        })
                                         .node_id(),
                                 );
                             }
@@ -80,9 +86,7 @@ impl Parser {
         if self.input.first().unwrap().token != TokenType::End {
             return Err("Input not fully consumed".to_string());
         }
-        let mut s = String::new();
-        tree.write_formatted(&mut s).unwrap();
-        Ok(s)
+        Ok(tree)
     }
     fn is_synchronization_token(&self, token: &TokenType) -> bool {
         [TokenType::T_Semicolon, TokenType::T_RP].contains(&token)

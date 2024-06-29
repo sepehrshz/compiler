@@ -67,6 +67,12 @@ pub enum NonTerminal {
 
 pub type ParsingTable = HashMap<(NonTerminal, TokenType), Vec<Symbol>>;
 
+#[derive(Debug, Clone, PartialEq, EnumString, AsRefStr)]
+pub enum SymbolTree {
+    Token((TokenType, String)),
+    NonTerminal(NonTerminal),
+}
+
 #[derive(Debug, Clone, PartialEq, EnumString, Default, AsRefStr)]
 pub enum Symbol {
     Token(TokenType),
