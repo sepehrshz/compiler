@@ -4,7 +4,7 @@ pub(crate) mod lexial;
 pub(crate) mod syntax;
 pub(crate) mod token;
 
-const TEST_IN: &str = include_str!("./../tests/testSim.in");
+const TEST_IN: &str = include_str!("./../tests/test3.c");
 
 fn main() {
     let mut syntax = Parser::new(TEST_IN.to_owned());
