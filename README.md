@@ -1,4 +1,6 @@
-# Regex 
+
+اعضای گروه: سپهر شیرازی، سهیل سلیمی
+# فاز ۱ 
 
 variables : `[a-z,A-Z_] ([0-9] | [a-z,A-Z_])\* | whitespace | end`
 digits: `([0-9] | operators) ([0-9])\* | end`
@@ -9,10 +11,11 @@ operators: `+ | - | * | / | % | > | < | = | <= | >= | != | == |  (  |  ) | [ | ]
 end: `\0`
 
 # ماشین گذار
+
 ![ماشین گذاز](M.png)
 
 -------------------------------
-part 2
+فاز ۲
 -------------------------------
 
 # Grammar 
@@ -350,3 +353,129 @@ StringLiteral -> T_String
  **StringLiteral** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | StringLiteral \-&gt; T\_String |  
 
 با استفاده از جدول های ساخته شده می توانیم انها را وارد کد کرده و استفاده کنیم
+
+# فاز ۳
+
+کد شامل دو بخش اصلی است:
+
+1. **تعریف ساختار Sem**: شامل تعریف ساختار `Sem` که درخت نمادین (AST) و جدول شناسه‌ها (ID Table) را نگهداری می‌کند.
+2. **توابع و متدها**: شامل توابع و متدهای مختلف برای انجام عملیات تجزیه و تحلیل معنایی
+
+ساختار `Sem` شامل دو عضو است:
+
+- درخت `ast`: درخت نمادین (AST) که ساختار نحوی کد منبع را نگهداری می‌کند.
+- جدول `ids_table`: جدول شناسه‌ها که نوع شناسه‌ها و پارامترهای آن‌ها را نگهداری می‌کند.
+
+متد `parser`:
+
+این متد تحلیل معنایی کد را انجام می‌دهد. ابتدا از تابع `post_order_traversal` برای پیمایش درخت نمادین و پر کردن جدول شناسه‌ها استفاده می‌کند. سپس جدول شناسه‌ها را چاپ کرده و بررسی می‌کند که آیا تابع اصلی (main) با نوع صحیح و بدون پارامتر تعریف شده است یا خیر.
+
+متد `post_order_traversal`:
+
+این تابع به صورت بازگشتی درخت نمادین را به صورت post-order پیمایش می‌کند. در هر گره، عملیات‌های مختلفی بر اساس نوع گره انجام می‌دهد که شامل بررسی و ثبت شناسه‌ها، بررسی تطابق انواع و بررسی تعداد پارامترها می‌شود.
+
+#### توابع کمکی
+
+کد شامل چندین تابع کمکی است که به تحلیل معنایی کمک می‌کنند:
+
+- `find_types`: برای پیدا کردن نوع شناسه‌ها در گره‌های مختلف.
+- `find_the_op`: برای پیدا کردن نوع عملیات در گره‌های مختلف.
+- `count_prams`: برای شمارش تعداد پارامترهای یک تابع.
+- `find_prams`: برای پیدا کردن پارامترهای یک تابع.
+
+### بررسی و افزایش شماره بلوک
+
+```rust
+if let SymbolTree::Token(t) = symbole {     if t.token == TokenType::T_LC {         *block_num = *block_num + 1;     } }
+```
+
+اگر گره فعلی یک توکن `LC` باشد، شماره بلوک را افزایش می‌دهد. این کار برای مدیریت بلوک‌های کد (مثل بلوک‌های توابع یا حلقه‌ها) است.
+
+### پردازش گره‌های غیرترمینال
+
+```rust
+if let SymbolTree::NonTerminal(data) = symbole {     
+	if data == &NonTerminal::Declaration {  /* پردازش گره‌های اعلان */  }              else if data == &NonTerminal::VarDeclRest {/*پردازش گره‌های باقیمانده اعلان متغیر */ } 
+	else if data == &NonTerminal::ReturnStatement {         /* پردازش گره‌های دستور بازگشت */    } }
+```
+
+اگر گره فعلی یک گره غیرترمینال باشد، بر اساس نوع گره عملیات مختلفی انجام می‌دهد.
+
+### پردازش گره‌های اعلان(Declaration)
+
+```rust
+if data == &NonTerminal::Declaration {     
+	let mut choil = node.children();     
+	let n = choil.next().unwrap();   
+	let n = n.last_child().unwrap();     
+	let name = if let SymbolTree::Token(t) = n.first_child().unwrap().data() {t}                else {         unimplemented!();     };     
+	let n = choil.next().unwrap();     
+	let n = n.last_child().unwrap();     
+	let types = if let SymbolTree::Token(t) = n.data() {   t   } 
+	            else {         unimplemented!();     };     
+	if ids_table.contains_key(&(name.literal.clone(), block_num.clone())) {               println!("two same var in a block {:?}", &name);     
+	} 
+	else {         
+		let mut prams = vec![];         
+		find_prams(&node, &mut prams);         
+		prams.reverse();         
+		let mut typer = None;         
+		find_the_op(&node, &mut typer);         
+		if typer.is_some() && typer.unwrap() != types.token &&                               n.parent().unwrap().parent().unwrap().parent().unwrap().data()                   == &SymbolTree::NonTerminal(NonTerminal::Statement) {                               println!("types dont match {:?}", types);  
+	        }         
+	    ids_table.insert((name.literal.clone(), block_num.clone()),                      (types.token.clone(), prams),);     
+	 }  
+}
+```
+
+این بخش گره‌های اعلان متغیرها و توابع را پردازش می‌کند:
+
+1. ابتدا نام و نوع متغیر یا تابع را استخراج می‌کند.
+2. بررسی می‌کند که آیا شناسه‌ای با همین نام در همان بلوک وجود دارد یا خیر.
+3. پارامترهای تابع را پیدا کرده و معکوس می‌کند.
+4. نوع عملیات‌ها را پیدا می‌کند و اگر نوع‌ها تطابق نداشته باشند، پیام خطا چاپ می‌کند.
+5. شناسه و نوع آن را در جدول شناسه‌ها ثبت می‌کند.
+
+### پردازش گره‌های دستور بازگشت
+
+```rust
+else if data == &NonTerminal::ReturnStatement {     
+	let node = node.first_child().unwrap();     
+	let typr = if node.data() ==                                                         &SymbolTree::NonTerminal(NonTerminal::Expression) {         
+	    if let SymbolTree::Token(token) = node.last_child().unwrap().data() {             ids_table.iter().find(|f| f.0 .0 == token.literal).unwrap().1.0.clone()         } 
+	    else {
+	       let mut g = None;             
+	       find_the_op(&node, &mut g);             
+	       g.unwrap().clone()         
+	    }     
+	} 
+	else { unimplemented!(); };     
+	fn find_typr(node: NodeRef<SymbolTree>) -> SymbolTree {         
+	   if node.data() == &SymbolTree::NonTerminal(NonTerminal::Declaration) {             node.last_child().unwrap().first_child().unwrap().data().clone()               } 
+	   else { find_typr(node.parent().unwrap()) }     
+	}     
+	if let SymbolTree::Token(t) = find_typr(node) {         
+	   if typr.clone() != t.token {             
+	      println!("return type doesnt match {:?}", t);         
+	   }     
+	} 
+}
+```
+
+این بخش گره‌های دستور بازگشت را پردازش می‌کند:
+
+1. نوع عبارت بازگشتی را پیدا می‌کند.
+2. بررسی می‌کند که آیا نوع بازگشتی با نوع اعلان تابع مطابقت دارد یا خیر.
+
+### بررسی شناسه‌ها
+
+```rust
+if let SymbolTree::Token(token) = symbole {     
+   if token.token == TokenType::T_Id && 
+      ids_table.keys().find(|f| f.0 == token.literal).is_none() &&                     node.parent().unwrap().parent().unwrap().data() ==                               &SymbolTree::NonTerminal(NonTerminal::VarOrFunc) {         
+         println!("var or func not declaration {:?}", { token })     
+    }
+}
+```
+
+این بخش بررسی می‌کند که آیا شناسه‌ها (متغیرها یا توابع) قبل از استفاده اعلان شده‌اند یا خیر.
