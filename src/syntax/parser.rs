@@ -48,9 +48,7 @@ impl Parser {
                                     tree.get_mut(ast_node)
                                         .unwrap()
                                         .append(match symbol {
-                                            Symbol::Token(T) => {
-                                                SymbolTree::Token((T.clone(), token.literal))
-                                            }
+                                            Symbol::Token(_) => SymbolTree::Token(token.clone()),
                                             Symbol::NonTerminal(non) => {
                                                 SymbolTree::NonTerminal(non.clone())
                                             }

@@ -4,7 +4,7 @@ pub mod parser;
 
 use strum::{AsRefStr, EnumString};
 
-use crate::token::TokenType;
+use crate::token::{Token, TokenType};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, EnumString, Default, AsRefStr)]
 pub enum NonTerminal {
@@ -26,6 +26,7 @@ pub enum NonTerminal {
     Parameter,
     MoreParameters,
     Block,
+    Iddd,
     Statements,
     Statement,
     Assignment,
@@ -63,13 +64,18 @@ pub enum NonTerminal {
     BooleanLiteral,
     CharacterLiteral,
     StringLiteral,
+    FuncCall,
+    ParametersCall,
+    ParameterListCa,
+    ParameterCa,
+    MoreParametersCal,
 }
 
 pub type ParsingTable = HashMap<(NonTerminal, TokenType), Vec<Symbol>>;
 
 #[derive(Debug, Clone, PartialEq, EnumString, AsRefStr)]
 pub enum SymbolTree {
-    Token((TokenType, String)),
+    Token(Token),
     NonTerminal(NonTerminal),
 }
 
@@ -651,9 +657,20 @@ pub fn add_rules() -> ParsingTable {
         ],
     );
     parsing_table.insert(
+        (NonTerminal::Iddd, TokenType::T_LP),
+        vec![Symbol::NonTerminal(NonTerminal::FuncCall)],
+    );
+
+    parsing_table.insert(
+        (NonTerminal::Iddd, TokenType::T_Assign),
+        vec![Symbol::NonTerminal(NonTerminal::Assignment)],
+    );
+
+    parsing_table.insert(
         (NonTerminal::Statement, TokenType::T_Id),
         vec![
-            Symbol::NonTerminal(NonTerminal::Assignment),
+            Symbol::Token(TokenType::T_Id),
+            Symbol::NonTerminal(NonTerminal::Iddd),
             Symbol::Token(TokenType::T_Semicolon),
         ],
     );
@@ -831,6 +848,11 @@ pub fn add_rules() -> ParsingTable {
         (NonTerminal::Expression, TokenType::T_LP),
         vec![Symbol::NonTerminal(NonTerminal::LogicalOr)],
     );
+    parsing_table.insert(
+        (NonTerminal::Expression, TokenType::T_Id),
+        vec![Symbol::NonTerminal(NonTerminal::LogicalOr)],
+    );
+
     parsing_table.insert(
         (NonTerminal::Expression, TokenType::T_LOp_NOT),
         vec![Symbol::NonTerminal(NonTerminal::LogicalOr)],
@@ -1536,23 +1558,51 @@ pub fn add_rules() -> ParsingTable {
         vec![Symbol::Token(TokenType::T_String)],
     );
 
+    parsing_table.insert(
+        (NonTerminal::FuncCall, TokenType::T_LP),
+        vec![
+            Symbol::Token(TokenType::T_LP),
+            Symbol::NonTerminal(NonTerminal::ParametersCall),
+            Symbol::Token(TokenType::T_RP),
+        ],
+    );
+    parsing_table.insert((NonTerminal::ParametersCall, TokenType::T_RP), vec![]);
+
+    parsing_table.insert(
+        (NonTerminal::ParametersCall, TokenType::T_Id),
+        vec![Symbol::NonTerminal(NonTerminal::ParameterListCa)],
+    );
+
+    parsing_table.insert(
+        (NonTerminal::ParameterListCa, TokenType::T_Id),
+        vec![
+            Symbol::NonTerminal(NonTerminal::ParameterCa),
+            Symbol::NonTerminal(NonTerminal::MoreParametersCal),
+        ],
+    );
+    parsing_table.insert(
+        (NonTerminal::ParameterCa, TokenType::T_Id),
+        vec![Symbol::Token(TokenType::T_Id)],
+    );
+
+    parsing_table.insert(
+        (NonTerminal::Expression, TokenType::T_Id),
+        vec![
+            Symbol::Token(TokenType::T_Id),
+            Symbol::NonTerminal(NonTerminal::FuncCall),
+        ],
+    );
+
+    parsing_table.insert(
+        (NonTerminal::MoreParametersCal, TokenType::T_Comma),
+        vec![
+            Symbol::Token(TokenType::T_Comma),
+            Symbol::NonTerminal(NonTerminal::ParameterCa),
+            Symbol::NonTerminal(NonTerminal::MoreParametersCal),
+        ],
+    );
+
+    parsing_table.insert((NonTerminal::MoreParametersCal, TokenType::T_RP), vec![]);
+
     parsing_table
-    // ... and so on for each grammar rule and corresponding input token.
-
-    // Create a list of tokens to parse.
-    // let input_tokens = vec![
-    //     Token::Id(String::from("id")),
-    //     Token::Plus,
-    //     Token::Id(String::from("id")),
-    //     Token::Eof,
-    // ];
-
-    // Initialize the parser with the parsing table and the input tokens.
-    // let mut parser = Parser::new(parsing_table, input_tokens);
-
-    // Parse the input tokens.
-    // match parser.parse() {
-    //     Ok(_) => println!("Parsing successful!"),
-    //     Err(e) => println!("Parsing error: {}", e),
-    // }
 }
